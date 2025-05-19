@@ -12,6 +12,7 @@ import readingTime from 'reading-time'
 
 import { getStyleString } from '.'
 import markedAlert from './MDAlert'
+import markedFootnotes from './MDFootnotes'
 import { MDKatex } from './MDKatex'
 import markedSlider from './MDSlider'
 
@@ -180,7 +181,7 @@ export function initRenderer(opts: IOpts) {
     if (oldStyle !== newStyle) {
       marked.use(markedAlert({ styles: styleMapping }))
       marked.use(
-        MDKatex({ nonStandard: true }, styles(`inline_katex`, `;vertical-align: middle; line-height: 1;`), styles(`block_katex`, `;text-align: center; overflow: auto;`),
+        MDKatex({ nonStandard: true }, styles(`inline_katex`, `;vertical-align: middle; line-height: 1;`), styles(`block_katex`, `;text-align: center;`),
         ),
       )
     }
@@ -345,9 +346,10 @@ export function initRenderer(opts: IOpts) {
   marked.use(markedSlider({ styles: styleMapping }))
   marked.use(markedAlert({ styles: styleMapping }))
   marked.use(
-    MDKatex({ nonStandard: true }, styles(`inline_katex`, `;vertical-align: middle; line-height: 1;`), styles(`block_katex`, `;text-align: center; overflow: auto;`),
+    MDKatex({ nonStandard: true }, styles(`inline_katex`, `;vertical-align: middle; line-height: 1;`), styles(`block_katex`, `;text-align: center;`),
     ),
   )
+  marked.use(markedFootnotes())
 
   return {
     buildAddition,

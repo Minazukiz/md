@@ -6,6 +6,7 @@ import {
   fontSizeOptions,
   legendOptions,
   themeOptions,
+  widthOptions,
 } from '@/config'
 import { useDisplayStore, useStore } from '@/stores'
 import { Moon, Sun } from 'lucide-vue-next'
@@ -159,6 +160,25 @@ const formatOptions = ref<Format[]>([`rgb`, `hex`, `hsl`, `hsv`])
         </div>
       </div>
       <div class="space-y-2">
+        <h2>AI 工具箱</h2>
+        <div class="grid grid-cols-5 justify-items-center gap-2">
+          <Button
+            class="w-full" variant="outline" :class="{
+              'border-black dark:border-white': store.showAIToolbox,
+            }" @click="!store.showAIToolbox && store.aiToolboxChanged()"
+          >
+            开启
+          </Button>
+          <Button
+            class="w-full" variant="outline" :class="{
+              'border-black dark:border-white': !store.showAIToolbox,
+            }" @click="store.showAIToolbox && store.aiToolboxChanged()"
+          >
+            关闭
+          </Button>
+        </div>
+      </div>
+      <div class="space-y-2">
         <h2>微信外链转底部引用</h2>
         <div class="grid grid-cols-5 justify-items-center gap-2">
           <Button
@@ -231,6 +251,18 @@ const formatOptions = ref<Format[]>([`rgb`, `hex`, `hsl`, `hsv`])
             }" @click="store.isEditOnLeft && store.toggleEditOnLeft()"
           >
             右侧
+          </Button>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <h2>预览模式</h2>
+        <div class="grid grid-cols-5 justify-items-center gap-2">
+          <Button
+            v-for="{ label, value } in widthOptions" :key="value" class="w-full" variant="outline" :class="{
+              'border-black dark:border-white': store.previewWidth === value,
+            }" @click="store.previewWidthChanged(value)"
+          >
+            {{ label }}
           </Button>
         </div>
       </div>
