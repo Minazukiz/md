@@ -23,8 +23,9 @@ import {
   formatDoc,
   sanitizeTitle,
 } from '@/utils'
-import { initRenderer } from '@/utils/renderer'
+import { copyPlain } from '@/utils/clipboard'
 
+import { initRenderer } from '@/utils/renderer'
 import CodeMirror from 'codemirror'
 import DOMPurify from 'dompurify'
 import { toPng } from 'html-to-image'
@@ -361,7 +362,9 @@ export const useStore = defineStore(`store`, () => {
 
     outputTemp = div.innerHTML
 
-    outputTemp = DOMPurify.sanitize(outputTemp)
+    outputTemp = DOMPurify.sanitize(outputTemp, {
+      ADD_TAGS: [`mp-common-profile`],
+    })
 
     // 阅读时间及字数统计
     outputTemp = renderer.buildReadingTime(readingTimeResult) + outputTemp
@@ -625,26 +628,19 @@ export const useStore = defineStore(`store`, () => {
 
   // 导入默认文档
   const importDefaultContent = () => {
-    editor.value!.setValue(DEFAULT_CONTENT)
+    toRaw(editor.value!).setValue(DEFAULT_CONTENT)
     toast.success(`文档已重置`)
   }
 
   // 清空内容
   const clearContent = () => {
-    editor.value!.setValue(``)
+    toRaw(editor.value!).setValue(``)
     toast.success(`内容已清空`)
   }
 
   const copyToClipboard = async () => {
-    try {
-      const selectedText = editor.value!.getSelection()
-      if (selectedText) {
-        await navigator.clipboard.writeText(selectedText)
-      }
-    }
-    catch (error) {
-      console.log(`复制失败`, error)
-    }
+    const selectedText = editor.value!.getSelection()
+    copyPlain(selectedText)
   }
 
   const pasteFromClipboard = async () => {
@@ -777,6 +773,10 @@ export const useDisplayStore = defineStore(`display`, () => {
   const isShowInsertFormDialog = ref(false)
   const toggleShowInsertFormDialog = useToggle(isShowInsertFormDialog)
 
+  // 是否展示插入公众号名片对话框
+  const isShowInsertMpCardDialog = ref(false)
+  const toggleShowInsertMpCardDialog = useToggle(isShowInsertMpCardDialog)
+
   // 是否展示上传图片对话框
   const isShowUploadImgDialog = ref(false)
   const toggleShowUploadImgDialog = useToggle(isShowUploadImgDialog)
@@ -793,6 +793,8 @@ export const useDisplayStore = defineStore(`display`, () => {
     toggleShowCssEditor,
     isShowInsertFormDialog,
     toggleShowInsertFormDialog,
+    isShowInsertMpCardDialog,
+    toggleShowInsertMpCardDialog,
     isShowUploadImgDialog,
     toggleShowUploadImgDialog,
     aiDialogVisible,
@@ -833,6 +835,7 @@ export function getAllStoreStates() {
     isShowCssEditor: displayStore.isShowCssEditor,
     isShowInsertFormDialog: displayStore.isShowInsertFormDialog,
     isShowUploadImgDialog: displayStore.isShowUploadImgDialog,
+    isShowInsertMpCardDialog: displayStore.isShowInsertMpCardDialog,
     aiDialogVisible: displayStore.aiDialogVisible,
   }
 }

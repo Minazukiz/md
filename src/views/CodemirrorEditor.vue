@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ComponentPublicInstance } from 'vue'
 import { AIPolishButton, AIPolishPopover, useAIPolish } from '@/components/AIPolish'
+import { SearchTab } from '@/components/ui/search-tab'
 import { altKey, altSign, ctrlKey, ctrlSign, shiftKey, shiftSign } from '@/config'
 import { useDisplayStore, useStore } from '@/stores'
 import {
@@ -8,6 +9,7 @@ import {
   formatDoc,
   toBase64,
 } from '@/utils'
+import { toggleFormat } from '@/utils/editor'
 import fileApi from '@/utils/file'
 import CodeMirror from 'codemirror'
 import { Eye, List, Pen } from 'lucide-vue-next'
@@ -32,6 +34,7 @@ const {
 
 const {
   toggleShowInsertFormDialog,
+  toggleShowInsertMpCardDialog,
   toggleShowUploadImgDialog,
 } = displayStore
 
@@ -40,10 +43,36 @@ const timeout = ref<NodeJS.Timeout>()
 
 const showEditor = ref(true)
 
+const searchTabRef = ref<InstanceType<typeof SearchTab>>()
+
+function openSearchWithSelection(cm: CodeMirror.Editor) {
+  const selected = cm.getSelection().trim()
+  if (!searchTabRef.value)
+    return
+
+  if (selected) {
+    // 自动带入选中文本
+    searchTabRef.value.setSearchWord(selected)
+  }
+  else {
+    // 仅打开面板
+    searchTabRef.value.showSearchTab = true
+  }
+}
+
+function handleGlobalKeydown(e: KeyboardEvent) {
+  if (e.key === `Escape` && searchTabRef.value?.showSearchTab) {
+    searchTabRef.value.showSearchTab = false
+    e.preventDefault()
+    editor.value?.focus()
+  }
+}
+
 onMounted(() => {
   setTimeout(() => {
     leftAndRightScroll()
   }, 300)
+  document.addEventListener(`keydown`, handleGlobalKeydown)
 })
 
 // 切换编辑/预览视图（仅限移动端）
@@ -214,34 +243,84 @@ function initEditor() {
       autoCloseBrackets: true,
       extraKeys: {
         [`${shiftKey}-${altKey}-F`]: function autoFormat(editor) {
-          formatDoc(editor.getValue()).then((doc) => {
+          const value = editor.getValue()
+          formatDoc(value).then((doc: string) => {
             editor.setValue(doc)
           })
         },
+
         [`${ctrlKey}-B`]: function bold(editor) {
-          const selected = editor.getSelection()
-          editor.replaceSelection(`**${selected}**`)
+          toggleFormat(editor, {
+            prefix: `**`,
+            suffix: `**`,
+            check: s => s.startsWith(`**`) && s.endsWith(`**`),
+          })
         },
+
         [`${ctrlKey}-I`]: function italic(editor) {
-          const selected = editor.getSelection()
-          editor.replaceSelection(`*${selected}*`)
+          toggleFormat(editor, {
+            prefix: `*`,
+            suffix: `*`,
+            check: s => s.startsWith(`*`) && s.endsWith(`*`),
+          })
         },
+
         [`${ctrlKey}-D`]: function del(editor) {
-          const selected = editor.getSelection()
-          editor.replaceSelection(`~~${selected}~~`)
+          toggleFormat(editor, {
+            prefix: `~~`,
+            suffix: `~~`,
+            check: s => s.startsWith(`~~`) && s.endsWith(`~~`),
+          })
         },
-        [`${ctrlKey}-K`]: function italic(editor) {
-          const selected = editor.getSelection()
-          editor.replaceSelection(`[${selected}]()`)
+
+        [`${ctrlKey}-K`]: function link(editor) {
+          toggleFormat(editor, {
+            prefix: `[`,
+            suffix: `]()`,
+            check: s => s.startsWith(`[`) && s.endsWith(`]()`),
+            afterInsertCursorOffset: -1,
+          })
         },
+
         [`${ctrlKey}-E`]: function code(editor) {
-          const selected = editor.getSelection()
-          editor.replaceSelection(`\`${selected}\``)
+          toggleFormat(editor, {
+            prefix: `\``,
+            suffix: `\``,
+            check: s => s.startsWith(`\``) && s.endsWith(`\``),
+          })
         },
-        // 预备弃用
-        [`${ctrlKey}-L`]: function code(editor) {
+
+        // 标题：单行逻辑，手动处理
+        [`${ctrlKey}-H`]: function heading(editor) {
           const selected = editor.getSelection()
-          editor.replaceSelection(`\`${selected}\``)
+          const replaced = selected.startsWith(`# `) ? selected.slice(2) : `# ${selected}`
+          editor.replaceSelection(replaced)
+        },
+
+        [`${ctrlKey}-U`]: function unorderedList(editor) {
+          const selected = editor.getSelection()
+          const lines = selected.split(`\n`)
+          const isList = lines.every(line => line.trim().startsWith(`- `))
+          const updated = isList
+            ? lines.map(line => line.replace(/^- +/, ``)).join(`\n`)
+            : lines.map(line => `- ${line}`).join(`\n`)
+          editor.replaceSelection(updated)
+        },
+
+        [`${ctrlKey}-O`]: function orderedList(editor) {
+          const selected = editor.getSelection()
+          const lines = selected.split(`\n`)
+          const isList = lines.every(line => /^\d+\.\s/.test(line.trim()))
+          const updated = isList
+            ? lines.map(line => line.replace(/^\d+\.\s+/, ``)).join(`\n`)
+            : lines.map((line, i) => `${i + 1}. ${line}`).join(`\n`)
+          editor.replaceSelection(updated)
+        },
+        [`${ctrlKey}-F`]: (cm: CodeMirror.Editor) => {
+          openSearchWithSelection(cm)
+        },
+        [`${ctrlKey}-G`]: function search() {
+          // use this to avoid CodeMirror's built-in search functionality
         },
       },
     })
@@ -450,6 +529,7 @@ const isOpenHeadingSlider = ref(false)
             'border-r': store.isEditOnLeft,
           }"
         >
+          <SearchTab v-if="editor" ref="searchTabRef" :editor="editor" />
           <AIFixedBtn :is-mobile="store.isMobile" :show-editor="showEditor" />
           <ContextMenu>
             <ContextMenuTrigger>
@@ -461,6 +541,9 @@ const isOpenHeadingSlider = ref(false)
               </ContextMenuItem>
               <ContextMenuItem inset @click="toggleShowInsertFormDialog()">
                 插入表格
+              </ContextMenuItem>
+              <ContextMenuItem inset @click="toggleShowInsertMpCardDialog()">
+                插入公众号名片
               </ContextMenuItem>
               <ContextMenuItem inset @click="resetStyleConfirm()">
                 重置样式
@@ -562,6 +645,8 @@ const isOpenHeadingSlider = ref(false)
       <UploadImgDialog @upload-image="uploadImage" />
 
       <InsertFormDialog />
+
+      <InsertMpCardDialog />
 
       <RunLoading />
 
